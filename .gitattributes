@@ -1,0 +1,17 @@
+# Normalise to LF in the repository. The API and web images are built on Linux,
+# and a shell script checked out with CRLF fails there with "bad interpreter".
+* text=auto eol=lf
+
+# Binary assets must never be touched
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Lockfiles are generated; collapse them in diffs and reviews
+package-lock.json linguist-generated=true -diff
