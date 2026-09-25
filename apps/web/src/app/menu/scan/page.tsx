@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { formatMoney } from "@bistro/shared";
 import {
   menuCategories,
   menuItems,
@@ -68,7 +69,7 @@ export default function ScanMenuPage() {
                             {item.name}
                           </h3>
                           <span className="tnum shrink-0 text-sm font-semibold text-gold-ink">
-                            {item.price}
+                            {formatMoney(item.priceCents)}
                           </span>
                         </div>
                         <p className="mt-1 text-xs leading-relaxed text-ink-soft">

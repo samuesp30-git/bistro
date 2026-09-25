@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { formatMoney } from "@bistro/shared";
 import type { MenuItem } from "@/data/restaurant";
 
 interface MenuCardProps {
@@ -24,7 +25,7 @@ export default function MenuCard({ item }: MenuCardProps) {
             {item.name}
           </h3>
           <span className="tnum shrink-0 text-lg font-semibold text-gold-ink">
-            {item.price}
+            {formatMoney(item.priceCents)}
           </span>
         </div>
 

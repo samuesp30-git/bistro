@@ -1,3 +1,4 @@
+import { formatMoneyRange } from "@bistro/shared";
 import { menuItems, ogImage, restaurantInfo, siteUrl } from "@/data/restaurant";
 
 /**
@@ -6,9 +7,7 @@ import { menuItems, ogImage, restaurantInfo, siteUrl } from "@/data/restaurant";
  * so the listing cannot contradict the site.
  */
 export default function StructuredData() {
-  const prices = menuItems
-    .map((item) => Number(item.price.replace(/[^\d.]/g, "")))
-    .filter((price) => Number.isFinite(price));
+  const prices = menuItems.map((item) => item.priceCents);
 
   const { addressParts } = restaurantInfo;
 
@@ -22,7 +21,7 @@ export default function StructuredData() {
     email: restaurantInfo.email,
     image: ogImage,
     servesCuisine: "French",
-    priceRange: `$${Math.min(...prices)}–$${Math.max(...prices)}`,
+    priceRange: formatMoneyRange(Math.min(...prices), Math.max(...prices)),
     foundingDate: String(restaurantInfo.foundedYear),
     acceptsReservations: `${siteUrl}/contact`,
     hasMenu: `${siteUrl}/menu`,

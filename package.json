@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev -w @bistro/web",
