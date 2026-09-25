@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { MenuCategory, MenuDish } from "@bistro/shared";
+import {
+  ALL_FILTER,
+  filterDishes,
+  type MenuCategory,
+  type MenuDish,
+  type MenuTag,
+} from "@bistro/shared";
 import MenuCard from "@/components/MenuCard";
-import FilterChips, { ALL_FILTER } from "@/components/FilterChips";
+import FilterChips from "@/components/FilterChips";
 
 interface MenuListProps {
   categories: MenuCategory[];
+  dietaryTags: MenuTag[];
   dishes: MenuDish[];
 }
 
@@ -14,17 +21,33 @@ interface MenuListProps {
  * The only interactive part of the menu page, so the page itself stays a server
  * component: it does the fetch and keeps its metadata, and the whole menu is in
  * the HTML for search engines. Filtering then happens here with no round trip.
+ *
+ * Two independent axes — course and diet — combined with AND. They are separate
+ * pieces of state rather than one compound filter, because "vegetarian" is a
+ * property of a dish and "Plats" is a place on the menu, and a guest avoiding
+ * meat wants to keep that on while they browse the courses.
  */
-export default function MenuList({ categories, dishes }: MenuListProps) {
+export default function MenuList({
+  categories,
+  dietaryTags,
+  dishes,
+}: MenuListProps) {
   const [category, setCategory] = useState<string>(ALL_FILTER);
+  const [diet, setDiet] = useState<string>(ALL_FILTER);
 
-  const shown =
-    category === ALL_FILTER
-      ? dishes
-      : dishes.filter((dish) => dish.categorySlug === category);
+  const shown = filterDishes(dishes, { category, diet });
 
-  const activeLabel =
-    categories.find((entry) => entry.slug === category)?.name ?? category;
+  const categoryLabel = categories.find((entry) => entry.slug === category)?.name;
+  const dietName = dietaryTags.find((tag) => tag.slug === diet)?.name;
+  /** "Gluten-Free" reads wrong mid-sentence; "gluten-free" does not. */
+  const dietLabel = dietName?.toLocaleLowerCase();
+
+  const filtered = category !== ALL_FILTER || diet !== ALL_FILTER;
+
+  function clearFilters() {
+    setCategory(ALL_FILTER);
+    setDiet(ALL_FILTER);
+  }
 
   return (
     <>
@@ -42,9 +65,26 @@ export default function MenuList({ categories, dishes }: MenuListProps) {
         allLabel="Everything"
       />
 
+      {dietaryTags.length > 0 && (
+        <div className="mt-4">
+          <FilterChips
+            options={dietaryTags.map((tag) => ({
+              value: tag.slug,
+              label: tag.name,
+            }))}
+            active={diet}
+            onChange={setDiet}
+            groupLabel="Filter the menu by dietary option"
+            allLabel="Any diet"
+            tone="secondary"
+          />
+        </div>
+      )}
+
       <p aria-live="polite" className="mt-6 text-center text-sm text-ink-muted">
-        {shown.length} {shown.length === 1 ? "dish" : "dishes"}
-        {category === ALL_FILTER ? " on the menu" : ` in ${activeLabel}`}
+        {shown.length} {dietLabel ? `${dietLabel} ` : ""}
+        {shown.length === 1 ? "dish" : "dishes"}
+        {categoryLabel ? ` in ${categoryLabel}` : " on the menu"}
       </p>
 
       {shown.length > 0 ? (
@@ -58,18 +98,23 @@ export default function MenuList({ categories, dishes }: MenuListProps) {
       ) : (
         <div className="mt-10 border border-ink/10 px-6 py-16 text-center">
           <p className="font-display text-2xl font-semibold text-ink">
-            Nothing on the menu under {activeLabel} right now
+            {dietLabel
+              ? `Nothing ${dietLabel}${categoryLabel ? ` under ${categoryLabel}` : " on the menu"} right now`
+              : `Nothing on the menu under ${categoryLabel} right now`}
           </p>
           <p className="mt-2 text-sm text-ink-muted">
-            The kitchen changes this course with the season.
+            The kitchen changes the menu with the season. Ask us about what the
+            chef can adapt.
           </p>
-          <button
-            type="button"
-            onClick={() => setCategory(ALL_FILTER)}
-            className="mt-6 inline-flex min-h-11 items-center border border-ink/20 px-6 text-sm font-semibold text-ink transition-colors duration-300 hover:border-gold-ink hover:text-gold-ink"
-          >
-            Show the whole menu
-          </button>
+          {filtered && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-6 inline-flex min-h-11 items-center border border-ink/20 px-6 text-sm font-semibold text-ink transition-colors duration-300 hover:border-gold-ink hover:text-gold-ink"
+            >
+              Show the whole menu
+            </button>
+          )}
         </div>
       )}
     </>

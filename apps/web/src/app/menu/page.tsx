@@ -45,7 +45,11 @@ export default async function MenuPage() {
       <section className="bg-cream py-24">
         <div className="mx-auto max-w-7xl px-6">
           {menu ? (
-            <MenuList categories={menu.categories} dishes={menu.dishes} />
+            <MenuList
+              categories={menu.categories}
+              dietaryTags={menu.dietaryTags}
+              dishes={menu.dishes}
+            />
           ) : (
             <MenuUnavailable />
           )}

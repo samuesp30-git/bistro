@@ -1,5 +1,7 @@
 "use client";
 
+import { ALL_FILTER } from "@bistro/shared";
+
 /**
  * A row of toggle chips, one of which is active.
  *
@@ -12,14 +14,25 @@
  * kitchen renames a course; the slug is what the filter compares.
  */
 
-export const ALL_FILTER = "all";
-
 export interface FilterOption {
   /** Slug. Compared against the active value. */
   value: string;
   /** What the guest reads. */
   label: string;
 }
+
+/**
+ * Which axis this row is. Two rows of identical gold chips would read as one
+ * wrapped group and would give a refinement the same weight as the main
+ * navigation, so the secondary row keeps the same shape and states but a lighter
+ * active treatment.
+ */
+type FilterTone = "primary" | "secondary";
+
+const ACTIVE_STYLES: Record<FilterTone, string> = {
+  primary: "bg-gold font-semibold text-charcoal",
+  secondary: "border border-gold-ink bg-gold/15 font-semibold text-gold-ink",
+};
 
 interface FilterChipsProps {
   options: FilterOption[];
@@ -29,6 +42,7 @@ interface FilterChipsProps {
   groupLabel: string;
   /** Label of the leading chip that clears the filter. */
   allLabel: string;
+  tone?: FilterTone;
 }
 
 export default function FilterChips({
@@ -37,6 +51,7 @@ export default function FilterChips({
   onChange,
   groupLabel,
   allLabel,
+  tone = "primary",
 }: FilterChipsProps) {
   const chips: FilterOption[] = [
     { value: ALL_FILTER, label: allLabel },
@@ -59,7 +74,7 @@ export default function FilterChips({
             aria-pressed={selected}
             className={`flex min-h-11 items-center rounded-full px-6 text-sm transition-colors duration-300 ${
               selected
-                ? "bg-gold font-semibold text-charcoal"
+                ? ACTIVE_STYLES[tone]
                 : "border border-ink/15 text-ink-soft hover:border-gold-ink hover:text-ink"
             }`}
           >

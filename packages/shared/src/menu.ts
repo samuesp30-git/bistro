@@ -79,6 +79,36 @@ export interface Menu {
   dishes: MenuDish[];
 }
 
+/** The value both menu filters use to mean "do not filter on this axis". */
+export const ALL_FILTER = "all";
+
+export interface MenuFilters {
+  /** Category slug, or ALL_FILTER. */
+  category: string;
+  /** Dietary tag slug, or ALL_FILTER. */
+  diet: string;
+}
+
+/**
+ * Applies the course and diet filters together, as AND.
+ *
+ * Pure and exported rather than inlined in the component so it can be checked
+ * against real menu data without driving a browser. Order is preserved, so the
+ * position the kitchen set on each dish survives filtering.
+ */
+export function filterDishes(
+  dishes: readonly MenuDish[],
+  { category, diet }: MenuFilters
+): MenuDish[] {
+  return dishes.filter((dish) => {
+    const matchesCategory =
+      category === ALL_FILTER || dish.categorySlug === category;
+    const matchesDiet =
+      diet === ALL_FILTER || dish.tags.some((tag) => tag.slug === diet);
+    return matchesCategory && matchesDiet;
+  });
+}
+
 /**
  * Lowest and highest dish price on the menu, for the `priceRange` field of the
  * Restaurant structured data. Returns null for an empty menu so the caller can
