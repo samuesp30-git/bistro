@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import PageHero from "@/components/PageHero";
 import CartView from "@/components/CartView";
+import OrderForm from "@/components/OrderForm";
 import MenuUnavailable from "@/components/MenuUnavailable";
 import { fetchMenu } from "@/lib/api";
 
@@ -30,7 +31,16 @@ export default async function OrderPage() {
 
       <section className="bg-cream py-24">
         <div className="mx-auto max-w-6xl px-6">
-          {menu ? <CartView dishes={menu.dishes} /> : <MenuUnavailable />}
+          {menu ? (
+            <>
+              <CartView dishes={menu.dishes} />
+              {/* The form hides itself on an empty cart, so it does not offer to
+                  send nothing to the kitchen. */}
+              <OrderForm dishes={menu.dishes} />
+            </>
+          ) : (
+            <MenuUnavailable />
+          )}
         </div>
       </section>
     </>

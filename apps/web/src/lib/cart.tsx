@@ -12,7 +12,10 @@ import {
   cartItemCount,
   cartLineKey,
   MAX_LINE_QUANTITY,
+  resolveCart,
   type CartLine,
+  type MenuDish,
+  type ResolvedCart,
 } from "@bistro/shared";
 
 const STORAGE_KEY = "bistro.cart.v1";
@@ -133,6 +136,38 @@ export function useCart(): CartContextValue {
     throw new Error("useCart must be used inside a CartProvider");
   }
   return context;
+}
+
+export interface ResolvedCartState extends ResolvedCart {
+  hydrated: boolean;
+  /**
+   * Whether this cart can be sent to the kitchen: something in it, nothing sold
+   * out, nothing that left the menu. The cart view and the form both ask this,
+   * rather than each deciding for itself and disagreeing.
+   */
+  canCheckout: boolean;
+  soldOutLines: ResolvedCart["lines"];
+}
+
+/** Resolves the stored cart against a menu, memoised on both. */
+export function useResolvedCart(dishes: MenuDish[]): ResolvedCartState {
+  const { lines, hydrated } = useCart();
+
+  return useMemo(() => {
+    const resolved = resolveCart(lines, dishes);
+    const soldOutLines = resolved.lines.filter((line) => !line.dish.isAvailable);
+
+    return {
+      ...resolved,
+      hydrated,
+      soldOutLines,
+      canCheckout:
+        hydrated &&
+        resolved.lines.length > 0 &&
+        soldOutLines.length === 0 &&
+        resolved.unavailable.length === 0,
+    };
+  }, [lines, dishes, hydrated]);
 }
 
 function clampQuantity(quantity: number): number {

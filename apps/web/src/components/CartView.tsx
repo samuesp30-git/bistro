@@ -2,14 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  formatMoney,
-  resolveCart,
-  MAX_LINE_QUANTITY,
-  type MenuDish,
-} from "@bistro/shared";
+import { formatMoney, MAX_LINE_QUANTITY, type MenuDish } from "@bistro/shared";
 import { MinusIcon, PlusIcon, TrashIcon } from "@/components/icons";
-import { useCart } from "@/lib/cart";
+import { useCart, useResolvedCart } from "@/lib/cart";
 
 /**
  * The cart, priced against the menu that was just fetched rather than against
@@ -20,7 +15,14 @@ import { useCart } from "@/lib/cart";
  * menu is reported instead of quietly carried to the till.
  */
 export default function CartView({ dishes }: { dishes: MenuDish[] }) {
-  const { lines, hydrated, setQuantity, remove } = useCart();
+  const { setQuantity, remove } = useCart();
+  const {
+    lines: resolved,
+    subtotalCents,
+    unavailable,
+    soldOutLines,
+    hydrated,
+  } = useResolvedCart(dishes);
 
   // The server cannot know this browser's storage, so the first render is always
   // empty. Showing "your order is empty" during that moment would be wrong.
@@ -31,11 +33,6 @@ export default function CartView({ dishes }: { dishes: MenuDish[] }) {
       </p>
     );
   }
-
-  const { lines: resolved, subtotalCents, unavailable } = resolveCart(
-    lines,
-    dishes
-  );
 
   if (resolved.length === 0 && unavailable.length === 0) {
     return (
@@ -55,8 +52,6 @@ export default function CartView({ dishes }: { dishes: MenuDish[] }) {
       </div>
     );
   }
-
-  const soldOutLines = resolved.filter((line) => !line.dish.isAvailable);
 
   return (
     <div className="grid gap-12 lg:grid-cols-[1fr_20rem]">

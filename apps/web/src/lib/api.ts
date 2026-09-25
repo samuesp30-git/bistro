@@ -1,4 +1,4 @@
-import type { Menu } from "@bistro/shared";
+import type { Menu, OrderSummary } from "@bistro/shared";
 
 /**
  * Base URL the *server* uses to reach the API.
@@ -66,6 +66,40 @@ export async function fetchMenu(
     return (await response.json()) as Menu;
   } catch (error) {
     console.error("[web] GET /api/menu failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Reads one order by its capability token, for the confirmation page.
+ *
+ * Never cached. An order's status changes as the kitchen works through it, and a
+ * guest refreshing to see whether their food is ready must not be served a copy
+ * from a minute ago.
+ *
+ * Returns null for a token that does not resolve, so the page can render a plain
+ * "we cannot find that" instead of leaking whether the token was merely wrong or
+ * genuinely expired.
+ */
+export async function fetchOrder(
+  publicToken: string
+): Promise<OrderSummary | null> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/orders/${encodeURIComponent(publicToken)}`,
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      if (response.status !== 404) {
+        console.error(`[web] GET /api/orders responded ${response.status}`);
+      }
+      return null;
+    }
+
+    return (await response.json()) as OrderSummary;
+  } catch (error) {
+    console.error("[web] GET /api/orders failed:", error);
     return null;
   }
 }
