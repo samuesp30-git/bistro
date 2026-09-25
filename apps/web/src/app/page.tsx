@@ -4,10 +4,11 @@ import HeroSection from "@/components/HeroSection";
 import SectionHeader from "@/components/SectionHeader";
 import Reveal from "@/components/Reveal";
 import MenuCard from "@/components/MenuCard";
+import MenuUnavailable from "@/components/MenuUnavailable";
 import TestimonialCard from "@/components/TestimonialCard";
 import { WhatsAppIcon } from "@/components/icons";
+import { fetchMenu } from "@/lib/api";
 import {
-  featuredItems,
   restaurantInfo,
   testimonials,
   whatsappLink,
@@ -32,7 +33,10 @@ const previewImages = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const menu = await fetchMenu();
+  const featured = menu?.dishes.filter((dish) => dish.isFeatured) ?? [];
+
   return (
     <>
       <HeroSection />
@@ -85,15 +89,19 @@ export default function HomePage() {
             title="Signature dishes"
             subtitle="Three plates the kitchen is known for"
           />
-          <ul className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {featuredItems.map((item, index) => (
-              <li key={item.id} className="flex">
-                <Reveal delay={index * 0.1} className="flex w-full">
-                  <MenuCard item={item} />
-                </Reveal>
-              </li>
-            ))}
-          </ul>
+          {featured.length > 0 ? (
+            <ul className="grid grid-cols-1 gap-8 md:grid-cols-3">
+              {featured.map((dish, index) => (
+                <li key={dish.id} className="flex">
+                  <Reveal delay={index * 0.1} className="flex w-full">
+                    <MenuCard dish={dish} />
+                  </Reveal>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <MenuUnavailable subject="list of signature dishes" />
+          )}
           <div className="mt-14 text-center">
             <Link
               href="/menu"

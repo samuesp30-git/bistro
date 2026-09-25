@@ -76,164 +76,23 @@ export const whatsappMessages = {
   question: `Hi! I have a question about ${restaurantInfo.name}.`,
 };
 
-export type MenuCategory = "Entrées" | "Plats" | "Desserts" | "Boissons";
+/*
+  The menu used to live here as a hardcoded array. It is now in Postgres and
+  reached through GET /api/menu, because the owner edits prices and marks dishes
+  sold out from the admin panel, and a deploy is not an acceptable way to change
+  tonight's price. See src/lib/api.ts.
+*/
 
-export const menuCategories: MenuCategory[] = [
-  "Entrées",
-  "Plats",
-  "Desserts",
-  "Boissons",
-];
-
-export interface MenuItem {
-  id: number;
-  name: string;
-  description: string;
-  /** Minor units. 1800 is $18. */
-  priceCents: number;
-  category: MenuCategory;
-  image: string;
-  tags?: string[];
-  /** Shown in the Signature Dishes row on the home page. */
-  featured?: boolean;
-}
-
-export const menuItems: MenuItem[] = [
-  {
-    id: 1,
-    name: "Burrata & Heirloom Tomato",
-    description:
-      "Creamy burrata cheese over ripe heirloom tomatoes, drizzled with aged balsamic and fresh basil.",
-    priceCents: 1800,
-    category: "Entrées",
-    image:
-      "https://images.unsplash.com/photo-1608897013039-887f21d8c804?w=1000&h=750&fit=crop",
-    tags: ["Vegetarian", "Gluten-Free"],
-    featured: true,
-  },
-  {
-    id: 2,
-    name: "Tuna Tartare",
-    description:
-      "Fresh yellowfin tuna with avocado mousse, crispy shallots, and a citrus soy dressing.",
-    priceCents: 2200,
-    category: "Entrées",
-    image:
-      "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=1000&h=750&fit=crop",
-    tags: ["Gluten-Free"],
-  },
-  {
-    id: 3,
-    name: "French Onion Soup",
-    description:
-      "Classic caramelized onion soup with a golden Gruyère crust and crusty sourdough crouton.",
-    priceCents: 1400,
-    category: "Entrées",
-    image:
-      "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=1000&h=750&fit=crop",
-  },
-  {
-    id: 4,
-    name: "Pan-Seared Salmon",
-    description:
-      "Atlantic salmon with a crispy skin, served on a bed of lemon risotto and asparagus tips.",
-    priceCents: 3600,
-    category: "Plats",
-    image:
-      "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=1000&h=750&fit=crop",
-    tags: ["Gluten-Free"],
-    featured: true,
-  },
-  {
-    id: 5,
-    name: "Wagyu Ribeye",
-    description:
-      "Prime wagyu ribeye, dry-aged 28 days, served with truffle mashed potatoes and roasted bone marrow.",
-    priceCents: 6200,
-    category: "Plats",
-    image:
-      "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=1000&h=750&fit=crop",
-    tags: ["Signature"],
-    featured: true,
-  },
-  {
-    id: 6,
-    name: "Wild Mushroom Risotto",
-    description:
-      "Arborio rice slow-cooked with porcini, chanterelle, and shiitake mushrooms, finished with Parmigiano.",
-    priceCents: 2800,
-    category: "Plats",
-    image:
-      "https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=1000&h=750&fit=crop",
-    tags: ["Vegetarian"],
-  },
-  {
-    id: 7,
-    name: "Crème Brûlée",
-    description:
-      "Classic Madagascar vanilla bean crème brûlée with a perfectly caramelized sugar crust.",
-    priceCents: 1400,
-    category: "Desserts",
-    image:
-      "https://images.unsplash.com/photo-1470324161839-ce2bb6fa6bc3?w=1000&h=750&fit=crop",
-    tags: ["Gluten-Free"],
-  },
-  {
-    id: 8,
-    name: "Chocolate Fondant",
-    description:
-      "Warm dark chocolate lava cake with a molten center, served with vanilla bean ice cream.",
-    priceCents: 1600,
-    category: "Desserts",
-    image:
-      "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=1000&h=750&fit=crop",
-  },
-  {
-    id: 9,
-    name: "Tarte Tatin",
-    description:
-      "Upside-down apple tart with caramelized Granny Smith apples, puff pastry, and crème fraîche.",
-    priceCents: 1500,
-    category: "Desserts",
-    image:
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1000&h=750&fit=crop",
-  },
-  {
-    id: 10,
-    name: "Sommelier Red Selection",
-    description:
-      "A curated glass of red wine chosen by our sommelier to sit alongside your meal.",
-    priceCents: 1800,
-    category: "Boissons",
-    image:
-      "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=1000&h=750&fit=crop",
-    tags: ["Wine"],
-  },
-  {
-    id: 11,
-    name: "Lavender Spritz",
-    description:
-      "House-made lavender syrup with prosecco, a splash of soda, and a twist of lemon.",
-    priceCents: 1500,
-    category: "Boissons",
-    image:
-      "https://images.unsplash.com/photo-1536935338788-846bb9981813?w=1000&h=750&fit=crop",
-    tags: ["Cocktail"],
-  },
-  {
-    id: 12,
-    name: "Espresso Martini",
-    description:
-      "Freshly pulled espresso shaken with vodka, coffee liqueur, and a touch of vanilla.",
-    priceCents: 1700,
-    category: "Boissons",
-    image:
-      "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1000&h=750&fit=crop",
-    tags: ["Cocktail"],
-  },
-];
-
-export const featuredItems = menuItems.filter((item) => item.featured);
+/**
+ * Price band published in the Restaurant structured data when the menu API
+ * cannot be reached.
+ *
+ * Normally the range is derived from live prices, so the listing cannot
+ * contradict the site. This constant only covers a sleeping API, where the
+ * choice is between a slightly stale band and dropping a field search engines
+ * expect. It matches the seeded menu, and is worth revisiting if the band moves.
+ */
+export const FALLBACK_PRICE_RANGE = "$14–$62";
 
 export interface Testimonial {
   id: number;

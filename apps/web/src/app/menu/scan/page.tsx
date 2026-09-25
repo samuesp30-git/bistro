@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { formatMoney } from "@bistro/shared";
-import {
-  menuCategories,
-  menuItems,
-  restaurantInfo,
-} from "@/data/restaurant";
+import { restaurantInfo } from "@/data/restaurant";
+import { fetchMenu } from "@/lib/api";
+import MenuUnavailable from "@/components/MenuUnavailable";
 import ScanPrintBar from "@/components/ScanPrintBar";
 
 export const metadata: Metadata = {
@@ -15,7 +13,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default function ScanMenuPage() {
+export default async function ScanMenuPage() {
+  const menu = await fetchMenu();
+
   return (
     <div className="bg-surface-print px-4 pb-16 pt-24 print:p-0">
       <div className="print-full-width mx-auto max-w-3xl overflow-hidden bg-white shadow-2xl shadow-charcoal/10">
@@ -35,16 +35,18 @@ export default function ScanMenuPage() {
         <ScanPrintBar />
 
         <div className="p-6 sm:p-8">
-          {menuCategories.map((category) => {
-            const items = menuItems.filter(
-              (item) => item.category === category
+          {menu === null && <MenuUnavailable />}
+
+          {menu?.categories.map((category) => {
+            const items = menu.dishes.filter(
+              (dish) => dish.categorySlug === category.slug
             );
             if (items.length === 0) return null;
 
             return (
-              <section key={category} className="mb-10 last:mb-0">
+              <section key={category.slug} className="mb-10 last:mb-0">
                 <h2 className="font-display text-2xl font-semibold text-ink">
-                  {category}
+                  {category.name}
                 </h2>
                 <div aria-hidden="true" className="mt-2 mb-6 h-px bg-ink/15" />
 
@@ -56,7 +58,7 @@ export default function ScanMenuPage() {
                     >
                       <div className="relative h-20 w-20 shrink-0 overflow-hidden">
                         <Image
-                          src={item.image}
+                          src={item.imageUrl}
                           alt=""
                           fill
                           sizes="80px"
@@ -75,9 +77,9 @@ export default function ScanMenuPage() {
                         <p className="mt-1 text-xs leading-relaxed text-ink-soft">
                           {item.description}
                         </p>
-                        {item.tags && item.tags.length > 0 && (
+                        {item.tags.length > 0 && (
                           <p className="mt-1.5 text-xs text-ink-muted">
-                            {item.tags.join(" · ")}
+                            {item.tags.map((tag) => tag.name).join(" · ")}
                           </p>
                         )}
                       </div>

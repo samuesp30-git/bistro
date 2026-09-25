@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import MenuList from "@/components/MenuList";
+import MenuUnavailable from "@/components/MenuUnavailable";
 import { WhatsAppIcon } from "@/components/icons";
+import { fetchMenu } from "@/lib/api";
 import { whatsappLink, whatsappMessages } from "@/data/restaurant";
 
 export const metadata: Metadata = {
@@ -12,7 +14,19 @@ export const metadata: Metadata = {
   alternates: { canonical: "/menu" },
 };
 
-export default function MenuPage() {
+/*
+  No `export const revalidate` here on purpose.
+
+  The interval is set once, on the fetch inside lib/api.ts, and Next lowers the
+  whole route's revalidation to match the shortest fetch in it. A segment config
+  export would have to be a literal — the docs are explicit that the value must
+  be statically analyzable, so `revalidate = MENU_REVALIDATE_SECONDS` silently
+  does nothing — and hardcoding 60 in four page files is four places to drift.
+*/
+
+export default async function MenuPage() {
+  const menu = await fetchMenu();
+
   return (
     <>
       <PageHero
@@ -30,7 +44,11 @@ export default function MenuPage() {
 
       <section className="bg-cream py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <MenuList />
+          {menu ? (
+            <MenuList categories={menu.categories} dishes={menu.dishes} />
+          ) : (
+            <MenuUnavailable />
+          )}
         </div>
       </section>
 
