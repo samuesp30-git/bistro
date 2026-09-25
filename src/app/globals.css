@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+/*
+  Palette tokens. The four brand values (cream, gold, terracotta, charcoal) are
+  committed in PRODUCT.md and are not to be changed. Everything below them is
+  derived: legible ink for text, since the brand gold reads at 2.1:1 on cream
+  and cannot carry text, and alpha-over-charcoal secondary text renders as a
+  neutral gray that belongs to no palette.
+*/
+:root {
+  /* Committed brand values */
+  --cream: #faf8f5;
+  --cream-dark: #f0ece4;
+  --gold: #c9a96e;
+  --gold-light: #ddc199;
+  --terracotta: #c4724e;
+  --charcoal: #1a1a2e;
+
+  /* Ink on light grounds — charcoal lightened, blue-violet cast kept */
+  --ink: #1a1a2e;        /* 15.6:1 on cream */
+  --ink-soft: #474761;   /*  8.5:1 on cream — secondary body copy */
+  --ink-muted: #565672;  /*  6.7:1 on cream — captions, meta */
+
+  /* Ink on the charcoal ground — warm cast carried over from cream */
+  --on-dark: #faf8f5;        /* 15.6:1 on charcoal */
+  --on-dark-soft: #bdb6a8;   /*  8.5:1 on charcoal */
+  --on-dark-muted: #9d9789;  /*  5.9:1 on charcoal */
+
+  /* Gold that can hold small text on a light ground */
+  --gold-ink: #7d612c;   /* 5.5:1 on cream, 4.9:1 on cream-dark */
+  --terracotta-ink: #a1512c; /* error text on light grounds */
+
+  --whatsapp: #25d366;
+  --whatsapp-dark: #1eaf54;
+  --surface-print: #f5f0e8;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@theme inline {
+  --color-background: var(--cream);
+  --color-foreground: var(--ink);
+
+  --color-cream: var(--cream);
+  --color-cream-dark: var(--cream-dark);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-ink: var(--gold-ink);
+  --color-terracotta: var(--terracotta);
+  --color-terracotta-ink: var(--terracotta-ink);
+  --color-charcoal: var(--charcoal);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-on-dark: var(--on-dark);
+  --color-on-dark-soft: var(--on-dark-soft);
+  --color-on-dark-muted: var(--on-dark-muted);
+
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-dark: var(--whatsapp-dark);
+  --color-surface-print: var(--surface-print);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-cormorant);
+}
+
+/* ---------- Base ---------- */
+
+html {
+  /* Clears the fixed navbar when an in-page anchor is targeted. */
+  scroll-padding-top: 5.5rem;
+}
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  text-rendering: optimizeLegibility;
+}
+
+/*
+  Browser surfaces. Selection, caret, scrollbar and focus ring ship with
+  defaults that belong to no design system; they are part of the page.
+*/
+::selection {
+  background: var(--gold);
+  color: var(--charcoal);
+}
+
+:root {
+  caret-color: var(--gold-ink);
+  scrollbar-color: var(--gold) var(--cream-dark);
+  scrollbar-width: thin;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--gold-ink);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* On the charcoal ground the gold ink is too dark to read as a ring. */
+.on-charcoal *:focus-visible,
+.on-charcoal:focus-visible {
+  outline-color: var(--gold);
+}
+
+a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: from-font;
+}
+
+/* Prices and figures align in a column rather than drifting per glyph width. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- Motion ----------
+   One authored sequence: the hero settles on arrival. Everything else moves
+   only in answer to something the guest did.
+*/
+
+@keyframes hero-settle {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 1.5rem, 0);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes hero-ground {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.hero-ground {
+  animation: hero-ground 2.4s var(--ease-out-expo) forwards;
+}
+
+.hero-settle > * {
+  animation: hero-settle 1s var(--ease-out-expo) backwards;
+}
+.hero-settle > *:nth-child(1) { animation-delay: 0.15s; }
+.hero-settle > *:nth-child(2) { animation-delay: 0.3s; }
+.hero-settle > *:nth-child(3) { animation-delay: 0.45s; }
+
+/*
+  Reveal starts from an already-visible default: if the observer never runs,
+  the content is simply there.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translate3d(0, 0.75rem, 0);
+    transition:
+      opacity 0.7s var(--ease-out-expo),
+      transform 0.7s var(--ease-out-expo);
+  }
+
+  .reveal-in {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Print ----------
+   The scan page exists to be printed. Site chrome, and the dark header that
+   browsers would drop to white, are handled here.
+*/
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .print-keep {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-full-width {
+    max-width: none !important;
+    box-shadow: none !important;
+  }
+}

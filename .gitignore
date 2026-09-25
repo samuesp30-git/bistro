@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+build/
+next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment — never commit secrets (Stripe keys, DATABASE_URL, JWT_SECRET)
+.env
+.env.*
+!.env.example
+
+# Prisma
+# (migrations ARE committed; only local artefacts are not)
+prisma/*.db
+prisma/*.db-journal
+
+# Deploy platforms
+.vercel
+.render
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+
+# Agent + tooling state, not part of the product
+.claude/
+.impeccable/
+.agents/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Commercial material — client pricing offers, not for a public repo
+sales-package.html
+sales-package-spanish.html
