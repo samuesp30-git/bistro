@@ -1,0 +1,45 @@
+# Local development stack.
+#
+# Right now this brings up the database only, which is all the app needs to run
+# from source: `npm run dev` serves the web and API on the host and talks to this
+# container. The `api` and `web` services join it in the Docker phase, once there
+# are images worth building.
+#
+# Nothing here is a production path. Production is Neon for the database and the
+# API image deployed from apps/api/Dockerfile.
+
+name: bistro
+
+services:
+  db:
+    # Alpine is fine for the Postgres *server*. The musl caveat in the Prisma
+    # docs is about the Prisma client binary, which lives in the API image, not
+    # here.
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      # Throwaway credentials for a container that only ever listens on
+      # localhost. The real ones live in the host's environment and never in a
+      # file that git can see.
+      POSTGRES_USER: bistro
+      POSTGRES_PASSWORD: bistro
+      POSTGRES_DB: bistro
+    ports:
+      # Bound to the loopback address on purpose. A bare "5432:5432" publishes
+      # Postgres to every device on the network, which on a laptop that joins
+      # cafe wifi is a genuinely bad afternoon.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # The API service will wait on this, so it has to mean "accepting queries",
+      # not "process started". Postgres restarts itself once during first-time
+      # initialisation, which is what start_period covers.
+      test: ["CMD-SHELL", "pg_isready -U bistro -d bistro"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  db-data:

@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import { AppError } from "../lib/AppError";
+import { isDatabaseUnavailable } from "../lib/prisma";
 import { isProduction } from "../env";
 
 /** Every response body on an error path has this shape. */
@@ -33,6 +34,19 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     const body: ErrorBody = { error: err.message, code: err.code };
     if (err.details !== undefined) body.details = err.details;
     res.status(err.status).json(body);
+    return;
+  }
+
+  // The database being unreachable is not a bug in this code, so it does not
+  // get reported as one. Still logged in full, because a real outage is
+  // something we want in the logs.
+  if (isDatabaseUnavailable(err)) {
+    console.error("Database unavailable:", err);
+    const body: ErrorBody = {
+      error: "The service is temporarily unavailable. Please try again shortly.",
+      code: "unavailable",
+    };
+    res.status(503).json(body);
     return;
   }
 

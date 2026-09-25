@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { env, isProduction } from "./env";
 import { healthRouter } from "./routes/health";
+import { apiRouter } from "./routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 /**
@@ -61,6 +62,7 @@ export function createApp(): Express {
   app.use(express.json({ limit: "100kb" }));
 
   app.use(healthRouter);
+  app.use("/api", apiRouter);
 
   // No path argument, so this is Express 5 safe. A bare "*" is a path-to-regexp
   // v8 syntax error in Express 5, which is what most examples still use.
