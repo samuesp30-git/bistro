@@ -8,12 +8,22 @@
 prisma -> @prisma/config -> deepmerge-ts@7.1.5
 ```
 
-**Not fixable from this repository, and not reachable in the deployed app.**
+**Not fixable from this repository. Removed from the image that serves traffic by
+an explicit delete, not by `--omit=dev`.**
 
 - `prisma` is a **devDependency**. It is the migration CLI. The runtime client
-  is `@prisma/client`, which does not depend on `deepmerge-ts`.
-- The API image installs with `--omit=dev`, so the package is not present in
-  anything that serves traffic.
+  is `@prisma/client`, which does not itself depend on `deepmerge-ts`.
+- **`--omit=dev` does not remove it.** An earlier version of this note claimed it
+  did; that was wrong. `@prisma/client` declares `prisma` and `typescript` as
+  **peerDependencies**, and npm installs the peers of a production dependency as
+  production. Neither `--omit=dev` nor `--omit=peer` drops them — both were tried
+  against the real lockfile, and the CLI was then found inside a built image.
+- What actually removes it is an explicit `rm -rf` in the runtime stage of
+  `apps/api/Dockerfile`, in the same layer as the install so the bytes never
+  persist. That also takes about 110MB off the image. The `migrate` stage keeps the
+  CLI, because migrations need it.
+- Verified afterwards: reads, a transactional write and a bcrypt sign-in all work
+  in the pruned image.
 - The advisory is a stack exhaustion when merging recursive object graphs. In
   this dependency the only input is the local Prisma config file, which is
   committed to this repository.

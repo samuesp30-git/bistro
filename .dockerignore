@@ -1,0 +1,65 @@
+# Keep the build context small and keep secrets out of it.
+#
+# Everything here is either regenerated inside the image, irrelevant to it, or must
+# never be copied in. A large context is slow to send to the daemon and invalidates
+# layer caches for no reason.
+
+# Dependencies are installed from the lockfile inside the image, and a host
+# node_modules would bring the wrong platform's binaries with it — Prisma's engine
+# in particular is compiled per OS.
+node_modules
+**/node_modules
+
+# Build output, all regenerated.
+.next
+**/.next
+dist
+**/dist
+out
+**/out
+next-env.d.ts
+
+# Secrets. An .env baked into a layer stays readable in the image history even if a
+# later layer deletes it, and an image gets pushed to a registry.
+#
+# The `**/` forms are the load-bearing ones and were added after catching this for
+# real: dockerignore patterns are matched against the path from the context root, so
+# a bare `.env` matches only `/.env` and sails straight past `apps/api/.env`. That
+# file — with the database URL and the signing secret in it — was found inside a
+# built image. Do not simplify these back to one line.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Version control and tooling state.
+.git
+.gitignore
+.gitattributes
+.github
+.claude
+.impeccable
+.agents
+
+# Editor and OS noise.
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Documentation and local notes: not part of the running app.
+*.md
+!README.md
+
+# Commercial material, kept out of images as well as out of the repo.
+sales-package.html
+sales-package-spanish.html
+
+# Docker's own files do not belong inside the image.
+Dockerfile
+**/Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml

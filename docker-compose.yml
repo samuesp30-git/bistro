@@ -1,45 +1,163 @@
-# Local development stack.
+# The whole application, from nothing to a working site:
 #
-# Right now this brings up the database only, which is all the app needs to run
-# from source: `npm run dev` serves the web and API on the host and talks to this
-# container. The `api` and `web` services join it in the Docker phase, once there
-# are images worth building.
+#   docker compose up --build
 #
-# Nothing here is a production path. Production is Neon for the database and the
-# API image deployed from apps/api/Dockerfile.
+# Then the site is on http://localhost:3000 and the API on http://localhost:4000.
+#
+# Four services: the database, a one-shot migration that runs and exits, the API,
+# and the web app. The ordering between them is enforced with conditions rather than
+# with sleeps, so a slow machine gets the same result as a fast one.
+#
+# Production is not this file. There the database is Neon and the API image is the
+# artifact deployed to Render, built from the same apps/api/Dockerfile.
 
 name: bistro
 
 services:
   db:
-    # Alpine is fine for the Postgres *server*. The musl caveat in the Prisma
-    # docs is about the Prisma client binary, which lives in the API image, not
-    # here.
+    # Alpine is fine for the Postgres *server*. The musl caveat in the Prisma docs is
+    # about the Prisma client binary, which lives in the API image, not here.
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      # Throwaway credentials for a container that only ever listens on
-      # localhost. The real ones live in the host's environment and never in a
-      # file that git can see.
+      # Throwaway credentials for a container that only ever listens on localhost.
+      # The real ones live in the host's environment and never in a file git can see.
       POSTGRES_USER: bistro
       POSTGRES_PASSWORD: bistro
       POSTGRES_DB: bistro
     ports:
       # Bound to the loopback address on purpose. A bare "5432:5432" publishes
-      # Postgres to every device on the network, which on a laptop that joins
-      # cafe wifi is a genuinely bad afternoon.
+      # Postgres to every device on the network, which on a laptop that joins cafe
+      # wifi is a genuinely bad afternoon.
       - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      # The API service will wait on this, so it has to mean "accepting queries",
-      # not "process started". Postgres restarts itself once during first-time
-      # initialisation, which is what start_period covers.
+      # Has to mean "accepting queries", not "process started". Postgres restarts
+      # itself once during first-time initialisation, which start_period covers.
       test: ["CMD-SHELL", "pg_isready -U bistro -d bistro"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  # Runs `prisma migrate deploy` once and exits. The API waits for it to finish
+  # successfully, so the schema is never behind the code that queries it.
+  #
+  # Built from the `migrate` stage, which is the only stage carrying the Prisma CLI.
+  # Keeping it out of the API's runtime image is deliberate: see SECURITY-NOTES.md.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Inside the compose network the host is the service name. There is no pooler
+      # in front of this database, so both URLs are the same.
+      DATABASE_URL: postgresql://bistro:bistro@db:5432/bistro?schema=public
+      DIRECT_URL: postgresql://bistro:bistro@db:5432/bistro?schema=public
+      # Only used by the seed. A deployed database is never seeded automatically;
+      # this is here so `docker compose up` yields a site with a menu on it.
+      SEED_ADMIN_EMAIL: owner@bistro.local
+      SEED_ADMIN_PASSWORD: local-dev-password
+      SEED_ADMIN_NAME: Bistro Owner
+    # The image's own CMD is just `migrate deploy`, which is the right default for a
+    # real deployment. Seeding is added here, for local use only. The seed is built
+    # from upserts, so running it on every `up` restores the canonical menu rather
+    # than duplicating it.
+    command: sh -c "npx prisma migrate deploy && npm run db:seed"
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        # Not just "started": the API must not come up against a database whose
+        # schema has not been brought forward yet.
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://bistro:bistro@db:5432/bistro?schema=public
+      DIRECT_URL: postgresql://bistro:bistro@db:5432/bistro?schema=public
+      # The browser's origin, for CORS. Not the compose service name: this value is
+      # compared against the Origin header a real browser sends.
+      WEB_ORIGIN: http://localhost:3000
+      PUBLIC_WEB_URL: http://localhost:3000
+      # Local-only. A deployed API reads this from the host's environment.
+      JWT_SECRET: local-compose-only-secret-not-for-production-use
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      # /health and not /health/ready: liveness must not fail because the database
+      # blipped, or compose would restart a perfectly healthy API.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runtime
+      args:
+        # Build-time, because NEXT_PUBLIC_* is inlined into the browser bundle.
+        # Setting it as an environment variable below would have no effect.
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        # Also build-time: Next compiles rewrite destinations into
+        # routes-manifest.json, so this has to be right when the image is built or
+        # every proxied API call hits localhost inside the web container. It is
+        # repeated under `environment` because server components need it per
+        # request too.
+        API_INTERNAL_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # The runtime half of the pair above. `api` is the compose service name,
+      # reachable on the internal network.
+      API_INTERNAL_URL: http://api:4000
+    ports:
+      - "3000:3000"
+    healthcheck:
+      # This hits /menu rather than a bare "is it listening" path, and that is doing
+      # two jobs. The pages were prerendered during the image build, when no API
+      # existed, so they carry the "menu unavailable" fallback. They are ISR pages,
+      # which means the first request after they go stale serves the old copy and
+      # revalidates behind it. Letting the healthcheck be that first request means
+      # the cache is already warm by the time a person opens the browser, instead of
+      # the first visitor being the one who sees the fallback.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/menu').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
 
 volumes:
   db-data:

@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 /**
@@ -7,6 +8,20 @@ import type { NextConfig } from "next";
 const apiBaseUrl = process.env.API_INTERNAL_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
+  /**
+   * Build a self-contained server bundle, which is what the Docker image runs.
+   *
+   * `outputFileTracingRoot` is mandatory here and not a nicety: in a monorepo the
+   * trace defaults to this package's own directory, so everything hoisted to the
+   * repo root — node_modules and @bistro/shared among them — would be left out and
+   * the container would start and immediately fail on a missing module. Two levels
+   * up is the repo root. Verified in the output.md docs.
+   *
+   * Vercel ignores this and builds its own way, so it is harmless there.
+   */
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../.."),
+
   images: {
     // Serve the modern formats first; both are far smaller than the JPEGs
     // Unsplash hands back.
