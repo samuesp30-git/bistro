@@ -1,0 +1,262 @@
+// Bistro data model.
+//
+// Two rules govern everything here:
+//   1. Money is always an integer of minor units. 1800 is $18.00. There is no
+//      float and no Decimal, and priceCents maps 1:1 onto Stripe unit_amount.
+//   2. Order lines carry snapshots of the name and price they were bought at.
+//      The owner edits prices daily; without snapshots a price change would
+//      silently rewrite past receipts and stop matching what Stripe charged.
+
+generator client {
+  provider      = "prisma-client-js"
+  // The API image is Debian (node:24-slim). Add "linux-musl-openssl-3.0.x"
+  // only if it ever moves to Alpine.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooled connection for the running app.
+  url       = env("DATABASE_URL")
+  // Unpooled connection. Prisma Migrate cannot run through a transaction
+  // pooler, which is what this exists for.
+  directUrl = env("DIRECT_URL")
+}
+
+enum TagKind {
+  DIETARY // builds a filter chip on the menu
+  LABEL //   shown on the card but not filterable
+}
+
+enum SelectionType {
+  SINGLE
+  MULTI
+}
+
+enum Fulfillment {
+  PICKUP
+  DELIVERY
+}
+
+enum StaffRole {
+  OWNER
+  STAFF
+}
+
+/// One lifecycle, two writers. Only the Stripe webhook may move an order into
+/// PAID, PAYMENT_FAILED or REFUNDED. Staff may only walk PAID -> IN_KITCHEN ->
+/// READY -> COMPLETED, or CANCELLED. Enforced in services/orders.ts.
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  PAID
+  IN_KITCHEN
+  READY
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  position  Int      @default(0)
+  dishes    Dish[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+/// Dietary filters and decorative labels share one table. Every tag renders on
+/// the dish card; only DIETARY tags become filter chips.
+model Tag {
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  name     String
+  kind     TagKind @default(LABEL)
+  position Int     @default(0)
+  dishes   Dish[]  @relation("DishTags")
+
+  @@map("tags")
+}
+
+model Dish {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  name         String
+  description  String
+  priceCents   Int
+  imageUrl     String
+  categoryId   String
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  tags         Tag[]         @relation("DishTags")
+  optionGroups OptionGroup[]
+  orderLines   OrderLine[]
+  isFeatured   Boolean       @default(false)
+  /// false means sold out. This is the toggle the owner flips during service.
+  isAvailable  Boolean       @default(true)
+  /// Soft delete. A hard delete would break order history via OrderLine.
+  isArchived   Boolean       @default(false)
+  position     Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([categoryId, position])
+  @@map("dishes")
+}
+
+/// "No onion" and "Large" are the same shape, which is why there are no special
+/// cases in the pricing code: a free removal is an option with
+/// priceDeltaCents 0 in a MULTI group, and a paid upgrade is an option with a
+/// positive delta in a SINGLE group.
+model OptionGroup {
+  id            String        @id @default(cuid())
+  dishId        String
+  dish          Dish          @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  name          String
+  selectionType SelectionType @default(SINGLE)
+  minSelect     Int           @default(0)
+  /// null means unlimited.
+  maxSelect     Int?
+  position      Int           @default(0)
+  options       Option[]
+
+  @@index([dishId, position])
+  @@map("option_groups")
+}
+
+model Option {
+  id              String            @id @default(cuid())
+  optionGroupId   String
+  group           OptionGroup       @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  name            String
+  priceDeltaCents Int               @default(0)
+  isDefault       Boolean           @default(false)
+  isAvailable     Boolean           @default(true)
+  position        Int               @default(0)
+  selections      OrderLineOption[]
+
+  @@index([optionGroupId, position])
+  @@map("options")
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  /// Shown to the guest as BIS-0007.
+  orderNumber Int         @unique @default(autoincrement())
+  /// Capability URL. The status page is reachable by this token alone, so order
+  /// ids are never enumerable from the outside.
+  publicToken String      @unique @default(cuid())
+  status      OrderStatus @default(PENDING_PAYMENT)
+  fulfillment Fulfillment
+
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  /// Required when fulfillment is DELIVERY. Nullable in the column because that
+  /// rule is conditional; it is enforced by one shared Zod schema instead.
+  deliveryAddress String?
+  /// null means as soon as possible.
+  requestedFor    DateTime?
+  note            String?
+
+  subtotalCents    Int
+  deliveryFeeCents Int    @default(0)
+  taxCents         Int    @default(0)
+  /// Equals the amount handed to Stripe.
+  totalCents       Int
+  currency         String @default("usd")
+
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+
+  lines     OrderLine[]
+  events    OrderEvent[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderLine {
+  id             String            @id @default(cuid())
+  orderId        String
+  order          Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dishId         String
+  /// Restrict, not Cascade: deleting a dish must not erase what someone bought.
+  dish           Dish              @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  nameSnapshot   String
+  basePriceCents Int
+  /// base + sum of the selected option deltas
+  unitPriceCents Int
+  quantity       Int
+  lineTotalCents Int
+  selections     OrderLineOption[]
+
+  @@index([orderId])
+  @@map("order_lines")
+}
+
+model OrderLineOption {
+  id                String    @id @default(cuid())
+  orderLineId       String
+  orderLine         OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  optionId          String
+  option            Option    @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  groupNameSnapshot String
+  nameSnapshot      String
+  priceDeltaCents   Int
+
+  @@index([orderLineId])
+  @@map("order_line_options")
+}
+
+/// Audit trail. Every status change writes one row, so the panel can show who
+/// moved a ticket and when, and a disputed order can be reconstructed.
+model OrderEvent {
+  id           String       @id @default(cuid())
+  orderId      String
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus   OrderStatus?
+  toStatus     OrderStatus
+  actorStaffId String?
+  actorStaff   StaffUser?   @relation(fields: [actorStaffId], references: [id], onDelete: SetNull)
+  /// "webhook" | "staff" | "system"
+  source       String
+  note         String?
+  createdAt    DateTime     @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_events")
+}
+
+model StaffUser {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  /// bcrypt, cost 12
+  passwordHash String
+  name         String
+  role         StaffRole    @default(STAFF)
+  isActive     Boolean      @default(true)
+  lastLoginAt  DateTime?
+  events       OrderEvent[]
+  createdAt    DateTime     @default(now())
+
+  @@map("staff_users")
+}
+
+/// Keys: accepting_orders, delivery_fee_cents, tax_bps, min_order_cents,
+/// pickup_lead_minutes. This is what lets the owner close ordering for the night
+/// without a deploy.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
