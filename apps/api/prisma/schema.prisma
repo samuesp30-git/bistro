@@ -123,6 +123,7 @@ model OptionGroup {
   position      Int           @default(0)
   options       Option[]
 
+  @@unique([dishId, name])
   @@index([dishId, position])
   @@map("option_groups")
 }
@@ -138,6 +139,7 @@ model Option {
   position        Int               @default(0)
   selections      OrderLineOption[]
 
+  @@unique([optionGroupId, name])
   @@index([optionGroupId, position])
   @@map("options")
 }
