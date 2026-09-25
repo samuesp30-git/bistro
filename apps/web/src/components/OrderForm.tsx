@@ -246,7 +246,13 @@ export default function OrderForm({ dishes }: { dishes: MenuDish[] }) {
         <button
           type="submit"
           disabled={!canCheckout || submitting}
-          className="flex min-h-12 w-full items-center justify-center bg-charcoal px-10 text-sm font-semibold text-cream transition-colors duration-300 hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/25 sm:w-auto"
+          /*
+            Disabled goes to a pale ground with muted dark text, the ordinary
+            inert idiom. Leaving cream text on bg-ink/25 measured 1.69:1, so
+            "Place the order" was illegible precisely when a guest is trying to
+            work out why they cannot proceed. This pair is 6.00:1.
+          */
+          className="flex min-h-12 w-full items-center justify-center bg-charcoal px-10 text-sm font-semibold text-cream transition-colors duration-300 hover:bg-ink disabled:cursor-not-allowed disabled:bg-cream-dark disabled:text-ink-muted sm:w-auto"
         >
           {submitting ? "Sending to the kitchen…" : "Place the order"}
         </button>

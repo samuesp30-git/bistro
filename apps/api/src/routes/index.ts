@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { menuRouter } from "./menu";
 import { ordersRouter } from "./orders";
+import { adminRouter } from "./admin";
 
 /**
  * Everything under `/api`. Mounted once in app.ts, so a new feature adds a
@@ -14,3 +15,4 @@ export const apiRouter = Router();
 
 apiRouter.use(menuRouter);
 apiRouter.use(ordersRouter);
+apiRouter.use("/admin", adminRouter);

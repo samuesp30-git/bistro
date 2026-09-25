@@ -1,10 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
-import Navbar from "@/components/Navbar";
-import { CartProvider } from "@/lib/cart";
-import Footer from "@/components/Footer";
-import WhatsAppButton from "@/components/WhatsAppButton";
-import StructuredData from "@/components/StructuredData";
 import { ogImage, restaurantInfo, siteUrl } from "@/data/restaurant";
 import "./globals.css";
 
@@ -78,28 +73,14 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${inter.variable} ${cormorant.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:bg-gold focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-charcoal"
-        >
-          Skip to content
-        </a>
-        {/*
-          The cart wraps the whole app so the navbar can show a count on every
-          page. It holds identifiers only; prices are resolved against the menu
-          wherever the cart is actually displayed.
-        */}
-        <CartProvider>
-          <Navbar />
-          <main id="main" className="flex-1">
-            {children}
-          </main>
-          <Footer />
-        </CartProvider>
-        <WhatsAppButton />
-        <StructuredData />
-      </body>
+      {/*
+        Only the document shell lives here: fonts, base metadata, and the stylesheet.
+        The public navbar, footer, cart and structured data belong to the (site)
+        group, because the staff panel is a different application that happens to
+        share a domain — it should not carry a "Reserve a table" button or a
+        floating WhatsApp bubble.
+      */}
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

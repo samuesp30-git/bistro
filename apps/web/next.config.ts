@@ -19,27 +19,34 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   /**
-   * Proxy the API onto this origin.
+   * The public API, proxied onto this origin so the browser's calls are
+   * same-origin: no CORS preflight, and the API's own URL is never shipped to
+   * the client.
    *
-   * This is what lets the admin session be an ordinary same-origin httpOnly
-   * cookie with SameSite=Lax, instead of a cross-site cookie needing
-   * SameSite=None plus CORS with credentials. The API itself stays pure bearer
-   * auth, so it remains callable with curl.
+   * This is an allowlist, not `/api/:path*`, and that is deliberate on two
+   * counts.
    *
-   * Returning an array puts these in the `afterFiles` phase, which runs *after*
-   * filesystem routes are checked. That ordering matters: the login route that
-   * sets the cookie is a real route handler at app/api/..., and it has to win
-   * over this catch-all rather than be forwarded to the API.
+   * Security: a blanket proxy would expose `/api/admin/*` to anyone who typed the
+   * URL. Those routes are meant to be reached only with a bearer token that the
+   * browser deliberately never holds — the token lives in an httpOnly cookie and
+   * is attached server-side. Leaving the whole prefix open would undo that.
    *
-   * The Stripe webhook must NOT come through here. Stripe is pointed straight at
-   * the API's own URL, because a proxy hop can alter the raw bytes the signature
-   * was computed over.
+   * Routing: rewrites returned as an array run after static filesystem routes but
+   * *before* dynamic ones (verified in the rewrites doc). A catch-all proxy would
+   * therefore beat any `app/api/admin/[...]` handler and silently win. Keeping
+   * admin out of the source removes the conflict instead of fighting it.
+   *
+   * The Stripe webhook must NOT come through here either. Stripe is pointed
+   * straight at the API's own URL, because a proxy hop can alter the raw bytes the
+   * signature was computed over.
    */
   async rewrites() {
     return [
+      { source: "/api/menu", destination: `${apiBaseUrl}/api/menu` },
+      { source: "/api/orders", destination: `${apiBaseUrl}/api/orders` },
       {
-        source: "/api/:path*",
-        destination: `${apiBaseUrl}/api/:path*`,
+        source: "/api/orders/:token",
+        destination: `${apiBaseUrl}/api/orders/:token`,
       },
     ];
   },
