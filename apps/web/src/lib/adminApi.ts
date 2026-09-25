@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import type { MenuCategory } from "@bistro/shared";
+import type { MenuCategory, OrderStatusValue } from "@bistro/shared";
 import { readSessionToken } from "./session";
 
 const API_BASE_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4000";
@@ -108,5 +108,68 @@ export async function patchAdminDish(
   return {
     ok: false,
     error: body?.error ?? `That change was refused (${response.status}).`,
+  };
+}
+
+export interface AdminOrderLine {
+  id: string;
+  nameSnapshot: string;
+  quantity: number;
+  unitPriceCents: number;
+  lineTotalCents: number;
+  selections: { groupNameSnapshot: string; nameSnapshot: string }[];
+}
+
+export interface AdminOrder {
+  id: string;
+  orderNumber: number;
+  status: OrderStatusValue;
+  fulfillment: "PICKUP" | "DELIVERY";
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string | null;
+  deliveryAddress: string | null;
+  requestedFor: string | null;
+  note: string | null;
+  subtotalCents: number;
+  deliveryFeeCents: number;
+  taxCents: number;
+  totalCents: number;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: AdminOrderLine[];
+}
+
+export async function fetchAdminOrders(): Promise<{
+  orders: AdminOrder[];
+  fetchedAt: string;
+}> {
+  const response = await adminFetch("/orders");
+  if (!response.ok) {
+    throw new Error(`GET /api/admin/orders responded ${response.status}`);
+  }
+  return (await response.json()) as { orders: AdminOrder[]; fetchedAt: string };
+}
+
+/** Moves a ticket. Returns the API's message on refusal rather than throwing. */
+export async function patchAdminOrderStatus(
+  id: string,
+  status: OrderStatusValue
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const response = await adminFetch(`/orders/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+
+  if (response.ok) return { ok: true };
+
+  const body = (await response.json().catch(() => null)) as
+    | { error?: string }
+    | null;
+  return {
+    ok: false,
+    error: body?.error ?? `That move was refused (${response.status}).`,
   };
 }

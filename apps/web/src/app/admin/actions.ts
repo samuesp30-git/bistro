@@ -1,8 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { parseMoneyToCents } from "@bistro/shared";
-import { patchAdminDish, type DishPatch } from "@/lib/adminApi";
+import {
+  ORDER_STATUS_VALUES,
+  parseMoneyToCents,
+  type OrderStatusValue,
+} from "@bistro/shared";
+import {
+  patchAdminDish,
+  patchAdminOrderStatus,
+  type DishPatch,
+} from "@/lib/adminApi";
 import type { ActionResult } from "./actionResult";
 
 /**
@@ -73,5 +81,33 @@ export async function toggleDishFlagAction(
   if (!result.ok) return { ok: false, message: result.error };
 
   revalidatePublicMenu();
+  return { ok: true, message: null };
+}
+
+/**
+ * Moves a ticket through the kitchen.
+ *
+ * The API decides whether the move is legal; this only forwards it. Revalidating
+ * /admin/orders is what makes the feed reflect the change instantly rather than on
+ * the next poll.
+ */
+export async function updateOrderStatusAction(
+  _previous: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "");
+
+  if (!id) return { ok: false, message: "Missing order." };
+  if (!(ORDER_STATUS_VALUES as readonly string[]).includes(status)) {
+    // The value arrives in a form body, so it is checked against the enum rather
+    // than passed straight through.
+    return { ok: false, message: "That is not a status." };
+  }
+
+  const result = await patchAdminOrderStatus(id, status as OrderStatusValue);
+  if (!result.ok) return { ok: false, message: result.error };
+
+  revalidatePath("/admin/orders");
   return { ok: true, message: null };
 }

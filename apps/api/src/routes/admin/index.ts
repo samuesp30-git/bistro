@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireStaff } from "../../middleware/requireStaff";
 import { adminAuthRouter } from "./auth";
 import { adminDishesRouter } from "./dishes";
+import { adminOrdersRouter } from "./orders";
 
 /**
  * Everything under /api/admin.
@@ -18,3 +19,4 @@ adminRouter.use(adminAuthRouter);
 
 adminRouter.use(requireStaff);
 adminRouter.use(adminDishesRouter);
+adminRouter.use(adminOrdersRouter);

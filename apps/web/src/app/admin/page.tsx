@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { formatMoney } from "@bistro/shared";
 import DishRow from "@/components/admin/DishRow";
 import SignOutButton from "@/components/admin/SignOutButton";
@@ -38,7 +39,15 @@ export default async function AdminPage() {
               Signed in as {staff.name} · {staff.role.toLowerCase()}
             </p>
           </div>
-          <SignOutButton />
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/orders"
+              className="flex min-h-11 items-center bg-charcoal px-5 text-xs font-semibold uppercase tracking-widest text-cream transition-colors duration-300 hover:bg-ink"
+            >
+              Orders
+            </Link>
+            <SignOutButton />
+          </div>
         </header>
 
         <dl className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-4">
