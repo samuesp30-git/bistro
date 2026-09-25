@@ -92,3 +92,39 @@ export function CheckIcon(props: IconProps) {
     </Outline>
   );
 }
+
+export function BagIcon(props: IconProps) {
+  return (
+    <Outline {...props}>
+      <path d="M6 8h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 8Z" />
+      <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+    </Outline>
+  );
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <Outline {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Outline>
+  );
+}
+
+export function MinusIcon(props: IconProps) {
+  return (
+    <Outline {...props}>
+      <path d="M5 12h14" />
+    </Outline>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <Outline {...props}>
+      <path d="M4 7h16" />
+      <path d="M10 4h4a1 1 0 0 1 1 1v2H9V5a1 1 0 0 1 1-1Z" />
+      <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+      <path d="M10 11v6M14 11v6" />
+    </Outline>
+  );
+}

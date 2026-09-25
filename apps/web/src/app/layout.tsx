@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
 import Navbar from "@/components/Navbar";
+import { CartProvider } from "@/lib/cart";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import StructuredData from "@/components/StructuredData";
@@ -84,11 +85,18 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <Navbar />
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <Footer />
+        {/*
+          The cart wraps the whole app so the navbar can show a count on every
+          page. It holds identifiers only; prices are resolved against the menu
+          wherever the cart is actually displayed.
+        */}
+        <CartProvider>
+          <Navbar />
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+          <Footer />
+        </CartProvider>
         <WhatsAppButton />
         <StructuredData />
       </body>

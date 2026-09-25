@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import CartLink from "@/components/CartLink";
 import { restaurantInfo } from "@/data/restaurant";
 
 const navLinks = [
@@ -96,40 +97,44 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            <CartLink className="-mr-2" />
             <Link
               href="/contact"
-              className="ml-2 px-5 py-2.5 bg-gold text-charcoal text-sm font-semibold rounded-sm transition-colors duration-300 hover:bg-gold-light"
+              className="px-5 py-2.5 bg-gold text-charcoal text-sm font-semibold rounded-sm transition-colors duration-300 hover:bg-gold-light"
             >
               Reserve a table
             </Link>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setMobileOpen((open) => !open)}
-            className="md:hidden -mr-2 flex h-11 w-11 items-center justify-center"
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          >
-            <span aria-hidden="true" className="relative block h-4 w-6">
-              <span
-                className={`absolute left-0 block h-px w-6 bg-cream transition-transform duration-300 ${
-                  mobileOpen ? "top-1/2 rotate-45" : "top-0"
-                }`}
-              />
-              <span
-                className={`absolute left-0 top-1/2 block h-px w-6 -translate-y-1/2 bg-cream transition-opacity duration-300 ${
-                  mobileOpen ? "opacity-0" : "opacity-100"
-                }`}
-              />
-              <span
-                className={`absolute left-0 block h-px w-6 bg-cream transition-transform duration-300 ${
-                  mobileOpen ? "top-1/2 -rotate-45" : "bottom-0"
-                }`}
-              />
-            </span>
-          </button>
+          <div className="flex items-center md:hidden">
+            <CartLink />
+            <button
+              type="button"
+              onClick={() => setMobileOpen((open) => !open)}
+              className="-mr-2 flex h-11 w-11 items-center justify-center"
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            >
+              <span aria-hidden="true" className="relative block h-4 w-6">
+                <span
+                  className={`absolute left-0 block h-px w-6 bg-cream transition-transform duration-300 ${
+                    mobileOpen ? "top-1/2 rotate-45" : "top-0"
+                  }`}
+                />
+                <span
+                  className={`absolute left-0 top-1/2 block h-px w-6 -translate-y-1/2 bg-cream transition-opacity duration-300 ${
+                    mobileOpen ? "opacity-0" : "opacity-100"
+                  }`}
+                />
+                <span
+                  className={`absolute left-0 block h-px w-6 bg-cream transition-transform duration-300 ${
+                    mobileOpen ? "top-1/2 -rotate-45" : "bottom-0"
+                  }`}
+                />
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Height animates through the row track, so no measurement is needed. */}

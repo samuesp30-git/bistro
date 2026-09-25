@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { formatMoney, type MenuDish } from "@bistro/shared";
+import AddToOrder from "@/components/AddToOrder";
 
 interface MenuCardProps {
   dish: MenuDish;
@@ -58,6 +59,12 @@ export default function MenuCard({ dish }: MenuCardProps) {
             ))}
           </ul>
         )}
+
+        {/* mt-auto pins the button to the bottom, so a short description and a
+            long one still line their buttons up across the grid. */}
+        <div className="mt-auto">
+          <AddToOrder dish={dish} />
+        </div>
       </div>
     </article>
   );
