@@ -3,10 +3,11 @@ node_modules/
 .pnp
 .pnp.js
 
-# Next.js build output
+# Build output
 .next/
 out/
 build/
+dist/
 next-env.d.ts
 
 # TypeScript
