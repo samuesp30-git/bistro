@@ -15,7 +15,7 @@ import { readSettings, type RestaurantSettings } from "./settings";
  * Every price and every option delta is read from the database here, inside one
  * function, from ids the client supplied. The client's payload has no price field
  * to begin with, and this code never looks for one. The amount that goes to
- * Stripe is derived from what this returns and is persisted alongside the order,
+ * PayPal is derived from what this returns and is persisted alongside the order,
  * so what is charged, what is stored and what is shown all come from one
  * calculation.
  *

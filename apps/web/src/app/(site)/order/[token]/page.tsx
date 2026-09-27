@@ -7,6 +7,7 @@ import {
 } from "@bistro/shared";
 import PageHero from "@/components/PageHero";
 import { CheckIcon } from "@/components/icons";
+import PaymentNotice, { type PaymentOutcome } from "@/components/PaymentNotice";
 import { fetchOrder } from "@/lib/api";
 import { restaurantInfo, telHref } from "@/data/restaurant";
 
@@ -26,11 +27,19 @@ export const metadata: Metadata = {
  */
 export default async function OrderStatusPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ payment?: string }>;
 }) {
   const { token } = await params;
+  const { payment } = await searchParams;
   const order = await fetchOrder(token);
+
+  // Narrowed rather than passed through. It comes from a URL anyone can edit, and
+  // the component branches on it, so only the two values it understands get in.
+  const outcome: PaymentOutcome =
+    payment === "return" ? "return" : payment === "cancelled" ? "cancelled" : null;
 
   if (!order) {
     return (
@@ -92,6 +101,8 @@ export default async function OrderStatusPage({
               </p>
             </div>
           </div>
+
+          <PaymentNotice status={order.status} outcome={outcome} />
 
           <dl className="mt-10 grid gap-6 sm:grid-cols-2">
             <Detail

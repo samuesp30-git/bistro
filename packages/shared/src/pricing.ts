@@ -5,7 +5,7 @@ import type { MenuOptionGroup } from "./menu";
  *
  * The web client uses it with prices from the menu response, to show a guest a
  * running total. The API uses it with prices read from the database, to compute
- * the amount that is persisted and handed to Stripe. Same function, different
+ * the amount that is persisted and handed to PayPal. Same function, different
  * inputs — which is the point: the client still never sends a price, and the
  * total it displays cannot quietly disagree with the total that gets charged.
  *

@@ -7,6 +7,7 @@ import {
 import { prisma } from "../lib/prisma";
 import { AppError } from "../lib/AppError";
 import { priceOrder } from "../services/pricing";
+import { startPayment } from "../services/payments";
 
 export const ordersRouter = Router();
 
@@ -80,7 +81,13 @@ ordersRouter.post("/orders", async (req, res) => {
           })),
         },
       },
-      select: { id: true, orderNumber: true, publicToken: true, totalCents: true },
+      select: {
+        id: true,
+        orderNumber: true,
+        publicToken: true,
+        totalCents: true,
+        currency: true,
+      },
     });
 
     await tx.orderEvent.create({
@@ -96,10 +103,32 @@ ordersRouter.post("/orders", async (req, res) => {
     return created;
   });
 
+  // Opening the PayPal order happens AFTER the transaction committed, never
+  // inside it. Two reasons. An HTTP round trip inside a transaction holds a
+  // database connection for its whole duration, and a slow PayPal would exhaust
+  // the pool. And if PayPal fails, the order should still exist — the guest gets
+  // a placed order payable on collection, not a lost one.
+  let approvalUrl: string | null = null;
+  try {
+    approvalUrl = await startPayment({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      publicToken: order.publicToken,
+      totalCents: order.totalCents,
+      currency: order.currency,
+    });
+  } catch (error) {
+    console.error(
+      `Order ${order.orderNumber} was placed but PayPal could not be opened:`,
+      error
+    );
+  }
+
   const body: CreatedOrder = {
     orderNumber: order.orderNumber,
     publicToken: order.publicToken,
     totalCents: order.totalCents,
+    approvalUrl,
   };
 
   res.status(201).json(body);

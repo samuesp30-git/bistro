@@ -2,10 +2,11 @@
 //
 // Two rules govern everything here:
 //   1. Money is always an integer of minor units. 1800 is $18.00. There is no
-//      float and no Decimal, and priceCents maps 1:1 onto Stripe unit_amount.
+//      float and no Decimal. PayPal is the one place that wants a decimal
+//      string ("18.00"), and that conversion happens at its boundary only.
 //   2. Order lines carry snapshots of the name and price they were bought at.
 //      The owner edits prices daily; without snapshots a price change would
-//      silently rewrite past receipts and stop matching what Stripe charged.
+//      silently rewrite past receipts and stop matching what was charged.
 
 generator client {
   provider      = "prisma-client-js"
@@ -43,7 +44,7 @@ enum StaffRole {
   STAFF
 }
 
-/// One lifecycle, two writers. Only the Stripe webhook may move an order into
+/// One lifecycle, two writers. Only the payment webhook may move an order into
 /// PAID, PAYMENT_FAILED or REFUNDED. Staff may only walk PAID -> IN_KITCHEN ->
 /// READY -> COMPLETED, or CANCELLED. Enforced in services/orders.ts.
 enum OrderStatus {
@@ -167,13 +168,21 @@ model Order {
   subtotalCents    Int
   deliveryFeeCents Int    @default(0)
   taxCents         Int    @default(0)
-  /// Equals the amount handed to Stripe.
+  /// Equals the amount handed to PayPal.
   totalCents       Int
+  /// Stored lower case, the way this codebase writes it. PayPal requires an
+  /// upper-case ISO-4217 code, so it is upper-cased at that boundary and
+  /// nowhere else.
   currency         String @default("usd")
 
-  stripeSessionId       String?   @unique
-  stripePaymentIntentId String?
-  paidAt                DateTime?
+  /// The PayPal order id (their "order", not ours). Unique so a webhook can
+  /// find our row from their id, and so the same PayPal order can never be
+  /// attached to two of ours.
+  paypalOrderId   String?   @unique
+  /// The capture id, which is what a refund is issued against. Only exists once
+  /// the money actually moved.
+  paypalCaptureId String?
+  paidAt          DateTime?
 
   lines     OrderLine[]
   events    OrderEvent[]
@@ -235,6 +244,32 @@ model OrderEvent {
 
   @@index([orderId, createdAt])
   @@map("order_events")
+}
+
+/// Every webhook already applied, so a redelivery does nothing a second time.
+///
+/// PayPal retries on any non-2xx response and also redelivers on a schedule of
+/// its own, so a handler that is not idempotent will write PAID twice and log a
+/// second payment against the same order.
+///
+/// The insert of this row and the order status change happen in ONE
+/// transaction. That ordering is the whole point: recording the event first and
+/// then processing would mark an event as seen that was never applied, and a
+/// retry — the thing that was supposed to save us — would skip it. Here a
+/// unique violation on eventId means "already applied, reply 200", and a
+/// failure part-way through rolls the row back so the retry still works.
+model WebhookEvent {
+  id String @id @default(cuid())
+  /// PayPal's own event id, taken from the body. The dedupe key.
+  eventId   String @unique
+  eventType String
+  /// paypal-transmission-id, which is what their dashboard shows per delivery.
+  /// Not the dedupe key: one event retried has a new transmission id each time.
+  transmissionId String?
+  receivedAt     DateTime @default(now())
+
+  @@index([eventType, receivedAt])
+  @@map("webhook_events")
 }
 
 model StaffUser {

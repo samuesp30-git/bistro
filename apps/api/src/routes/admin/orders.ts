@@ -110,8 +110,8 @@ adminOrdersRouter.patch("/orders/:id", async (req, res) => {
   const staff = currentStaff(req);
 
   if (WEBHOOK_ONLY_STATUSES.includes(nextStatus)) {
-    // Whether money moved is Stripe's to report. A panel button must never be
-    // able to claim an order was paid or refunded.
+    // Whether money moved is the payment processor's to report. A panel button
+    // must never be able to claim an order was paid or refunded.
     throw AppError.forbidden(
       `${nextStatus} is set by the payment processor, not from the panel.`
     );

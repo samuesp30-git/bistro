@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { env, isProduction } from "./env";
 import { healthRouter } from "./routes/health";
 import { apiRouter } from "./routes";
+import { paypalWebhookRouter } from "./routes/webhooks/paypal";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 /**
@@ -50,14 +51,20 @@ export function createApp(): Express {
   );
 
   // ---------------------------------------------------------------------------
-  // The Stripe webhook route goes HERE, above express.json().
+  // The PayPal webhook is mounted HERE, above express.json(). This line's
+  // position is the load-bearing part of this file.
   //
-  // Signature verification needs the exact bytes Stripe signed. Once
-  // express.json() has parsed the body those bytes are gone and every webhook
-  // fails with "No signatures found matching the expected signature". Mounting
-  // express.raw() on that one route, before the global parser, keeps the rest of
-  // the API on parsed JSON. Do not "tidy" this by moving it down.
+  // Verification hashes the exact bytes PayPal signed — their own documentation
+  // says "You must use the original raw body… do not parse the body to an
+  // array/object and then re-stringify it", because JSON.parse followed by
+  // JSON.stringify changes key order and whitespace and therefore the checksum.
+  // Once express.json() has run those bytes are gone and every webhook rejects,
+  // with nothing in the request to suggest why.
+  //
+  // The router carries its own express.raw(), so the rest of the API stays on
+  // parsed JSON. Do not "tidy" this by moving it below.
   // ---------------------------------------------------------------------------
+  app.use(paypalWebhookRouter);
 
   app.use(express.json({ limit: "100kb" }));
 

@@ -1,8 +1,8 @@
 /**
  * Money is an integer number of minor units (cents) everywhere in this project:
- * in the database, in the API, in the cart and in Stripe. There is no float and
- * no conversion step, because `priceCents` maps one-to-one onto Stripe's
- * `unit_amount`.
+ * in the database, in the API and in the cart. There is no float and no Decimal
+ * anywhere. PayPal is the single exception: it wants a decimal string, and that
+ * conversion happens at its boundary and nowhere else.
  */
 
 export interface FormatMoneyOptions {

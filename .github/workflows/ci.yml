@@ -44,6 +44,10 @@ jobs:
       SEED_ADMIN_PASSWORD: ci-only-password
       SEED_ADMIN_NAME: CI Owner
       JWT_SECRET: ci-only-secret-long-enough-to-satisfy-validation
+      # PayPal is deliberately left unconfigured. That is the state the API has to
+      # survive: orders are placed as PENDING_PAYMENT and paid on collection, so a
+      # deploy without payment credentials serves a working site rather than a
+      # broken checkout. If this job ever starts needing them, that guarantee broke.
 
     steps:
       - uses: actions/checkout@v4
@@ -99,9 +103,51 @@ jobs:
           echo "the menu, from Postgres:"
           curl -sf http://localhost:4000/api/menu \
             | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const m=JSON.parse(s);if(m.dishes.length!==12)throw new Error('expected 12 dishes, got '+m.dishes.length);console.log(m.dishes.length+' dishes, '+m.categories.length+' categories');});"
+
+          # With no PayPal credentials, a webhook must be refused rather than
+          # accepted. 503 and not 404, because PayPal retries a 5xx and an instance
+          # that has not been given its credentials yet is a case where retrying is
+          # right.
+          echo "webhook, PayPal unconfigured:"
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:4000/api/webhooks/paypal \
+            -H 'Content-Type: application/json' \
+            -d '{"id":"EVT-CI","event_type":"PAYMENT.CAPTURE.COMPLETED"}')
+          echo "  $code"
+          if [ "$code" != "503" ]; then echo "expected 503, got $code"; exit 1; fi
         env:
           PORT: 4000
           NODE_ENV: production
+
+      - name: Refuse an unsigned webhook
+        # A second instance, this time WITH credentials, so the signature check
+        # actually runs. An unsigned body reaching this route must never be applied.
+        #
+        # It also proves the middleware order in app.ts: the route reads the raw
+        # body, so if express.json() ever moves above it the handler answers 500
+        # rather than 400 and this step fails. That ordering is invisible to a
+        # typecheck and silently breaks every real payment.
+        run: |
+          npm run start --workspace @bistro/api &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4001/health >/dev/null; then break; fi
+            sleep 1
+          done
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:4001/api/webhooks/paypal \
+            -H 'Content-Type: application/json' \
+            -H 'paypal-transmission-id: 11111111-2222-3333-4444-555555555555' \
+            -H 'paypal-transmission-time: 2026-01-01T00:00:00Z' \
+            -H 'paypal-transmission-sig: ZmFrZQ==' \
+            -H 'paypal-cert-url: https://api.sandbox.paypal.com/v1/notifications/certs/NOPE' \
+            -H 'paypal-auth-algo: SHA256withRSA' \
+            -d '{"id":"EVT-CI-FORGED","event_type":"PAYMENT.CAPTURE.COMPLETED","resource":{"invoice_id":"BIS-0001"}}')
+          echo "forged webhook -> $code"
+          if [ "$code" != "400" ]; then echo "expected 400, got $code"; exit 1; fi
+        env:
+          PORT: 4001
+          NODE_ENV: production
+          PAYPAL_CLIENT_ID: ci-not-a-real-client
+          PAYPAL_CLIENT_SECRET: ci-not-a-real-secret
+          PAYPAL_WEBHOOK_ID: WH-CI-NOT-REAL
 
       - name: Build the web app
         # No API is running by this point, and that is deliberate: fetchMenu returns

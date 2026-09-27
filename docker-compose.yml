@@ -94,6 +94,17 @@ services:
       PUBLIC_WEB_URL: http://localhost:3000
       # Local-only. A deployed API reads this from the host's environment.
       JWT_SECRET: local-compose-only-secret-not-for-production-use
+      # PayPal, passed through from the host rather than written here.
+      #
+      # All four are optional and the stack runs fine with none of them: orders
+      # are placed as PENDING_PAYMENT and paid on collection. Set them in a
+      # gitignored .env beside this file, or export them in your shell, to take
+      # payments from the containers. No credential goes in this file or into an
+      # image — .dockerignore excludes every .env form for that reason.
+      PAYPAL_ENV: ${PAYPAL_ENV:-sandbox}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID:-}
     ports:
       - "127.0.0.1:4000:4000"
     healthcheck:

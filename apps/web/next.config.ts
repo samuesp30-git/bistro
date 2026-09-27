@@ -51,9 +51,10 @@ const nextConfig: NextConfig = {
    * therefore beat any `app/api/admin/[...]` handler and silently win. Keeping
    * admin out of the source removes the conflict instead of fighting it.
    *
-   * The Stripe webhook must NOT come through here either. Stripe is pointed
+   * The PayPal webhook must NOT come through here either. PayPal is pointed
    * straight at the API's own URL, because a proxy hop can alter the raw bytes the
-   * signature was computed over.
+   * signature was computed over — and PayPal's own docs are explicit that the
+   * original body is what gets hashed.
    */
   async rewrites() {
     return [

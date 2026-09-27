@@ -100,6 +100,16 @@ export interface CreatedOrder {
   /** Capability token. The status page is reachable with this and nothing else. */
   publicToken: string;
   totalCents: number;
+  /**
+   * Where to send the browser to pay, or null when online payment is not
+   * configured.
+   *
+   * Null is a supported state, not a failure: the order is placed either way and
+   * is paid on collection instead. That is how the restaurant actually works, it
+   * keeps the whole app runnable with no payment credentials at all, and it means
+   * PayPal being down costs the kitchen nothing.
+   */
+  approvalUrl: string | null;
 }
 
 /** Human label for a status, shared so staff and guest wording cannot diverge. */

@@ -7,7 +7,7 @@ The owner signs in to a separate panel to change prices, mark dishes sold out, a
 watch orders arrive. It is the kind of small internal tool a restaurant would
 otherwise pay a monthly subscription for.
 
-**React (Next.js) · Node.js REST API (Express) · PostgreSQL (Prisma) · Docker**
+**React (Next.js) · Node.js REST API (Express) · PostgreSQL (Prisma) · Docker · PayPal**
 
 ---
 
@@ -88,8 +88,10 @@ the data model, so the pricing code has no special cases. The same dish ordered 
 different ways stays two lines, the way a till behaves.
 
 **Checkout.** Pickup or delivery, with an address when it is delivery, and a
-requested time validated against the kitchen's lead time. The confirmation page is
-reachable by a random token rather than an order number, so nobody can read the
+requested time validated against the kitchen's lead time. Payment goes through
+PayPal: the guest leaves for PayPal's own page and comes back, and a signed webhook
+— not the browser — is what marks the order paid. The confirmation page is reachable
+by a random token rather than an order number, so nobody can read the
 neighbourhood's dinner by counting upwards.
 
 **Staff panel.** Sign in, edit a price, mark a dish sold out, and watch the order
@@ -107,7 +109,9 @@ A payload claiming a total of one cent is charged the real amount.
 
 **Money is always an integer of minor units.** `priceCents`, never a float, never a
 `Decimal`. Tax is basis points — `825` is 8.25% — so the arithmetic never leaves the
-integers. It also maps one-to-one onto Stripe's `unit_amount`.
+integers. PayPal is the one thing that wants a decimal string, and that conversion
+happens at its boundary, built by string surgery rather than dividing by 100, so no
+float touches an amount even there.
 
 **Order lines carry snapshots.** Each line stores the name and price it was bought
 at. The owner edits prices daily; without snapshots a price change would quietly
@@ -135,6 +139,59 @@ live session immediately rather than whenever the token expires.
 and `REFUNDED` are refused from the panel with a 403 no matter who asks. Payment is
 tracked beside the workflow status, not folded into it, so a ticket can be cooking
 while payment is still due on collection.
+
+**PayPal rather than Stripe, because the restaurant is in Honduras.** Stripe does not
+operate there — in Latin America it supports Brazil and Mexico only — so the usual
+choice was not available. The shape of the integration is the same: the payer leaves
+for a hosted page, comes back, and a signed webhook is the only thing permitted to
+report that money moved. PayPal's version is slightly harder in a useful way, below.
+It is integrated over `fetch` rather than `@paypal/paypal-server-sdk`: the whole thing
+is three endpoints, the SDK brings axios plus five packages to wrap them, and it
+cannot verify a webhook anyway.
+
+**The signature is verified locally, and the certificate URL is the real problem.**
+PayPal signs `transmissionId|time|webhookId|crc32(rawBody)` with SHA256-RSA — against
+a certificate whose URL arrives *in a header the sender controls*. Fetch that URL
+blindly and the scheme is worthless: an attacker signs any body with their own key,
+points the header at their own certificate, and has just told the kitchen that an
+unpaid order was paid. So the host is checked against PayPal's domains before the
+fetch, by `URL.hostname` rather than a substring — `includes("paypal.com")` would
+accept `evil-paypal.com.attacker.tld`, and a raw string match would accept
+`https://api.paypal.com@evil.tld`. Verification is done locally rather than by
+posting the event back to PayPal for three reasons: postback cannot verify anything
+while PayPal is unreachable, which is exactly when retries are piling up; it does not
+work with their webhook simulator at all; and it costs a round trip per delivery.
+
+**The capture happens on the webhook, not when the browser returns.** A tab closed
+after approving would otherwise leave the payment authorised and never taken. The
+HTTP call to PayPal is deliberately outside the database transaction — a network round
+trip inside one holds a connection for its whole duration — which is safe because the
+capture is idempotent twice over: `PayPal-Request-Id` on their side, and
+`ORDER_ALREADY_CAPTURED` treated as success on ours.
+
+**A redelivered webhook is a no-op, and the ordering of that is the whole trick.**
+PayPal retries on any non-2xx and redelivers on its own schedule. The event id has a
+unique constraint, and that insert shares one transaction with the status change.
+Recording the event first in its own transaction would mark as seen an event that was
+never applied, and the retry that was supposed to save us would skip it. A unique
+violation means "already applied, reply 200"; a failure halfway rolls the marker back
+so the retry still has work to do.
+
+**A webhook never rewinds a ticket.** A pickup order can legitimately be `IN_KITCHEN`
+before the money lands, because the kitchen starts cooking something that will be paid
+on collection. So the payment facts and the workflow status are decided separately:
+`paidAt` and the capture id are always recorded, and the status moves only when moving
+it means something. Money arriving for an order somebody already cancelled records the
+capture — so it can be refunded — leaves the status alone, and logs loudly, because
+that one needs a person rather than a state transition.
+
+**No PayPal credentials is a supported state, not a broken one.** With none set the API
+still boots, orders are still placed, and they arrive as `PENDING_PAYMENT` payable on
+collection — which is how the restaurant works anyway. The same path covers PayPal
+being down: the order survives, the sale is not lost. An empty environment variable
+counts as unset, because `${PAYPAL_CLIENT_ID:-}` in compose and an unfilled field in
+the Render dashboard both produce `""`, and `z.string().min(1).optional()` rejects that
+— `optional()` permits `undefined`, not empty.
 
 ---
 
@@ -187,6 +244,14 @@ Two environment variables are easy to get wrong, both because they are needed at
   rewrite destinations at build time. Set only at runtime, every proxied API call
   fails while the API sits there perfectly healthy.
 
+**The PayPal webhook is pointed straight at the API's own URL**, never at the site's
+`/api/*` proxy. A proxy hop can alter the bytes the signature was computed over, and
+PayPal's documentation is explicit that the original raw body is what gets hashed. Its
+signing id goes in `PAYPAL_WEBHOOK_ID` — which is part of the signed message, so a
+wrong value fails every delivery with nothing to distinguish it from a forgery. PayPal
+cannot deliver to `localhost`, so local testing needs a tunnel
+(`cloudflared tunnel --url http://localhost:4000`) registered as the webhook URL.
+
 Migrations are applied with `npm run db:deploy --workspace @bistro/api` pointed at
 the production `DIRECT_URL` — unpooled, because Prisma Migrate cannot run through a
 transaction pooler. The runtime image deliberately does not carry the Prisma CLI; see
@@ -196,16 +261,22 @@ transaction pooler. The runtime image deliberately does not carry the Prisma CLI
 
 ## Not finished
 
-- **Payments.** The schema, the totals and the status machine are all built around
-  Stripe Checkout, and the webhook's place in the middleware order is already marked
-  in `apps/api/src/app.ts`. The integration itself is not wired up yet, so an order
-  is placed as `PENDING_PAYMENT` and the confirmation page says so rather than
-  claiming it was paid.
+- **A live PayPal account.** The integration runs against the sandbox. Going live is
+  a matter of credentials and `PAYPAL_ENV=live`, with no code change — that switch is
+  read from its own variable rather than inferred from `NODE_ENV`, because a staging
+  deploy runs `NODE_ENV=production` against the sandbox and guessing that wrong means
+  taking real money in a test.
+- **Refunds cannot be issued from the panel.** A refund arriving from PayPal is
+  handled and moves the order to `REFUNDED`; starting one is still done in PayPal's
+  own dashboard. The capture id is stored on every paid order precisely so that it
+  can be, including on the awkward orders — money that arrived for something already
+  cancelled keeps its capture id for exactly this reason.
 - **The order feed polls** every five seconds. Server-sent events would be tidier;
   polling is honest about what it is and was the right first version.
 - **No automated test suite.** Behaviour was verified by exercising the running
-  stack — the pricing, cart and filter logic against live data, and every route
-  against a real database. Those checks deserve to be a test suite rather than a
+  stack — the pricing, cart and filter logic against live data, every route against a
+  real database, and the webhook signature against a generated keypair including the
+  forged-certificate cases. Those checks deserve to be a test suite rather than a
   record in the commit history.
 
 ---

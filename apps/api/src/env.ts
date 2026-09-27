@@ -11,6 +11,22 @@ loadDotenv();
  * inside a request handler in production, which is how a service ends up
  * signing tokens with the string "undefined".
  */
+/**
+ * A variable that is optional, where an empty value counts as unset.
+ *
+ * `z.string().min(1).optional()` does NOT accept "": optional() permits
+ * undefined, not empty. That distinction matters because an empty string is
+ * exactly what you get from every place these values come from — compose
+ * interpolation writes `${PAYPAL_CLIENT_ID:-}` as "", and Render and Vercel both
+ * hand over an empty string for a variable somebody created and never filled in.
+ * Without this the API would refuse to boot because of a feature nobody enabled.
+ */
+const optionalSecret = (minLength = 1) =>
+  z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(minLength).optional()
+  );
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   // Render injects PORT and it is not 4000. Never hardcode the port.
@@ -22,16 +38,33 @@ const envSchema = z.object({
 
   /** Origin allowed by CORS. The web client is the only caller. */
   WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
-  /** Base URL Stripe redirects back to after checkout. */
+  /** Base URL PayPal redirects the payer back to after approval. */
   PUBLIC_WEB_URL: z.string().url().default("http://localhost:3000"),
 
   // Optional until the phase that introduces them, then required. The modules
   // that consume these assert on them, so a half-configured deploy fails at
   // boot rather than at the first login or the first payment.
-  JWT_SECRET: z.string().min(32).optional(),
+  JWT_SECRET: optionalSecret(32),
   JWT_EXPIRES_IN: z.string().min(1).default("12h"),
-  STRIPE_SECRET_KEY: z.string().min(1).optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  // ---------------------------------------------------------------------------
+  // PayPal.
+  //
+  // Not Stripe: Stripe does not operate in Honduras, and in Latin America
+  // supports only Brazil and Mexico. PayPal does, and the integration shape is
+  // the same one — redirect away, come back, and let a signed webhook be the
+  // only thing that may declare the order paid.
+  // ---------------------------------------------------------------------------
+  /** "sandbox" picks api-m.sandbox.paypal.com. Never inferred from NODE_ENV: a
+   *  staging deploy runs NODE_ENV=production against the sandbox, and guessing
+   *  that wrong means taking real money in a test. */
+  PAYPAL_ENV: z.enum(["sandbox", "live"]).default("sandbox"),
+  PAYPAL_CLIENT_ID: optionalSecret(),
+  PAYPAL_CLIENT_SECRET: optionalSecret(),
+  /** The webhook's id from the PayPal dashboard. It is part of the signed
+   *  message, so it is required to verify anything — not a secret, but without
+   *  it every signature check fails. */
+  PAYPAL_WEBHOOK_ID: optionalSecret(),
 });
 
 const parsed = envSchema.safeParse(process.env);

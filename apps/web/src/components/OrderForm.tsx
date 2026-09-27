@@ -116,6 +116,21 @@ export default function OrderForm({ dishes }: { dishes: MenuDish[] }) {
 
       // The cart is emptied only once the kitchen has the order.
       clear();
+
+      if (created.approvalUrl) {
+        // A full navigation, not router.push: this is PayPal's domain, and
+        // Next's client router only knows how to route within this app.
+        //
+        // `submitting` is deliberately left true. The tab is on its way out and
+        // re-enabling the button would offer a second identical order to anyone
+        // whose connection is slow enough to notice the gap.
+        window.location.href = created.approvalUrl;
+        return;
+      }
+
+      // No approval URL means online payment is not configured, which is a
+      // supported state rather than a failure: the order stands and is paid on
+      // collection. The status page says which.
       router.push(`/order/${created.publicToken}`);
     } catch {
       setFormError("We could not reach the kitchen. Please try again.");
