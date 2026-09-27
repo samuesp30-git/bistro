@@ -32,6 +32,7 @@ sequenced with `sleep`.
 
 ```bash
 npm install
+npm run build --workspace @bistro/shared     # both apps import its dist/
 docker compose up -d db                      # Postgres only
 cp apps/api/.env.example apps/api/.env       # then fill it in
 npm run db:migrate --workspace @bistro/api
@@ -40,6 +41,13 @@ npm run db:seed --workspace @bistro/api
 npm run dev --workspace @bistro/api          # localhost:4000
 npm run dev --workspace @bistro/web          # localhost:3000
 ```
+
+That second line is not optional. `@bistro/shared` resolves through its `dist/`,
+`dist/` is gitignored, and nothing builds it as a side effect — so skipping it fails
+with fifteen copies of `Cannot resolve '@bistro/shared'`. The root `npm run dev` and
+`npm run build` do it for you; the per-workspace commands above do not. If you are
+editing `packages/shared` itself, run `npm run dev --workspace @bistro/shared` in a
+third terminal to keep it compiling.
 
 </details>
 
@@ -220,10 +228,22 @@ packages/shared  money, menu types, pricing, cart identity, order schemas,
 |---|---|---|
 | Database | Neon | free tier |
 | API | Render, **built from `apps/api/Dockerfile`** | free tier |
-| Site | Vercel, root directory `apps/web` | |
+| Site | Vercel, root directory `apps/web`, **with the build command below** | |
 
 The API image is the artifact that actually gets deployed, which is what keeps the
 Docker setup from being decorative.
+
+Vercel needs its **Build Command** overridden, for the same reason the from-source
+steps above need their second line — with the root directory set to `apps/web`, the
+default `next build` never compiles `@bistro/shared`:
+
+```
+cd ../.. && npm run build --workspace @bistro/shared && npm run build --workspace @bistro/web
+```
+
+That command also needs *Include files outside of the Root Directory* left on, which
+is Vercel's default once it detects the workspace root — without it there is nothing
+at `../..` to build.
 
 The staff credentials shown further up are compose-only. There is no default password
 anywhere in the repository: the seed reads `SEED_ADMIN_PASSWORD` and refuses to run if

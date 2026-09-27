@@ -12,8 +12,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @bistro/web",
-    "build": "npm run build -w @bistro/web",
+    "//": "dev and build compile @bistro/shared first. Its package main points at dist/, dist/ is gitignored, and nothing else builds it — so without this a fresh clone fails with 15 copies of 'Cannot resolve @bistro/shared'. The Dockerfiles and CI call the workspace scripts directly and build shared in their own step, so they do not go through these.",
+    "dev": "npm run build -w @bistro/shared && npm run dev -w @bistro/web",
+    "build": "npm run build -w @bistro/shared && npm run build -w @bistro/web",
+    "build:api": "npm run build -w @bistro/shared && npm run build -w @bistro/api",
     "typecheck": "npm run typecheck --workspaces --if-present"
   }
 }
