@@ -168,6 +168,12 @@ jobs:
       # ways nothing else catches: a missing OpenSSL, a rewrite destination baked in
       # at build time, a secret copied into a layer. A green typecheck says nothing
       # about any of them.
+      #
+      # `ignore-error=true` on the cache export, because a cache write failure is not
+      # a build failure. GitHub's cache service rejected a blob here once with
+      # "error writing layer blob: not_found" AFTER both images had already built,
+      # which reported a broken Dockerfile that was not broken. The cache is an
+      # optimisation; what this job is for is proving the images build.
       - name: API image
         uses: docker/build-push-action@v6
         with:
@@ -176,7 +182,7 @@ jobs:
           target: runtime
           push: false
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
 
       - name: Web image
         uses: docker/build-push-action@v6
@@ -189,4 +195,4 @@ jobs:
             NEXT_PUBLIC_SITE_URL=http://localhost:3000
             API_INTERNAL_URL=http://api:4000
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
